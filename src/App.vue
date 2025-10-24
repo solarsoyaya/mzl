@@ -74,7 +74,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, reactive } from 'vue'
+import { ref, onMounted, computed, reactive, nextTick } from 'vue'
 import ChatInterface from './components/ChatInterface.vue'
 import Sidebar from './components/Sidebar.vue'
 import ReportModal from './components/ReportModal.vue'
@@ -618,53 +618,60 @@ export default {
       isTyping.value = true
       isAIResponding.value = true
       
-      // 创建一个AI消息，包含进度条 - 使用普通对象而不是reactive
-      const aiMessage = {
+      // 创建一个AI消息，包含进度条 - 使用reactive确保响应式更新
+      const aiMessage = reactive({
         type: 'ai',
         content: `正在分析"${fileName}"...`,
         timestamp: Date.now(),
         isTyping: false,
         showProgress: true,
         progress: 0
-      }
+      })
       currentConversation.messages.push(aiMessage)
       
       // 随机生成3-6秒的总时间
       const totalTime = Math.random() * 3000 + 3000 // 3000-6000ms
       
-      // 进度条动画 - 使用setInterval确保稳定更新
+      // 进度条动画 - 使用更可靠的更新机制
       let currentProgress = 0
+      let progressInterval = null
       console.log('🚀 开始进度条动画，总时间:', totalTime + 'ms')
       
-      const progressInterval = setInterval(() => {
-        try {
-          // 计算每次增量，使用2-4%的增量让动画更平滑
-          const increment = Math.random() * 2 + 2 // 2-4%
-          currentProgress += increment
-          
-          // 确保不超过95%（留5%给最终完成）
-          if (currentProgress > 95) {
-            currentProgress = 95
+      // 使用nextTick确保DOM更新
+      nextTick(() => {
+        progressInterval = setInterval(() => {
+          try {
+            // 计算每次增量，使用2-4%的增量让动画更平滑
+            const increment = Math.random() * 2 + 2 // 2-4%
+            currentProgress += increment
+            
+            // 确保不超过95%（留5%给最终完成）
+            if (currentProgress > 95) {
+              currentProgress = 95
+            }
+            
+            // 直接更新reactive对象的progress属性
+            aiMessage.progress = Math.floor(currentProgress)
+            
+            console.log('📊 进度更新:', Math.floor(currentProgress) + '%')
+            
+            // 如果达到95%，停止进度条
+            if (currentProgress >= 95) {
+              if (progressInterval) {
+                clearInterval(progressInterval)
+                progressInterval = null
+              }
+              console.log('✅ 进度条达到95%，准备完成')
+            }
+          } catch (error) {
+            console.error('❌ 进度条更新出错:', error)
+            if (progressInterval) {
+              clearInterval(progressInterval)
+              progressInterval = null
+            }
           }
-          
-          // 更新进度
-          const messageIndex = currentConversation.messages.findIndex(msg => msg === aiMessage)
-          if (messageIndex !== -1 && currentConversation.messages[messageIndex]) {
-            currentConversation.messages[messageIndex].progress = Math.floor(currentProgress)
-          }
-          
-          console.log('📊 进度更新:', Math.floor(currentProgress) + '%')
-          
-          // 如果达到95%，停止进度条
-          if (currentProgress >= 95) {
-            clearInterval(progressInterval)
-            console.log('✅ 进度条达到95%，准备完成')
-          }
-        } catch (error) {
-          console.error('❌ 进度条更新出错:', error)
-          clearInterval(progressInterval)
-        }
-      }, 100) // 每100ms更新一次
+        }, 100) // 每100ms更新一次
+      })
       
       // 完成分析
       setTimeout(() => {
@@ -672,14 +679,17 @@ export default {
           // 确保清理定时器
           if (progressInterval) {
             clearInterval(progressInterval)
+            progressInterval = null
           }
           
-          // 完成进度到100%
-          const messageIndex = currentConversation.messages.findIndex(msg => msg === aiMessage)
-          if (messageIndex !== -1 && currentConversation.messages[messageIndex]) {
-            currentConversation.messages[messageIndex].progress = 100
-            currentConversation.messages[messageIndex].showProgress = false
-            currentConversation.messages[messageIndex].content = `**台账分析完成** ✅
+          // 使用nextTick确保最终更新
+          nextTick(() => {
+            // 直接更新reactive对象
+            aiMessage.progress = 100
+            aiMessage.showProgress = false
+            
+            // 准备分析结果内容
+            const analysisResult = `**台账分析完成** ✅
 
 **文件信息：**
 📄 文件名：${fileName}
@@ -710,16 +720,29 @@ export default {
 **下一步建议：**
 1. 立即安排紧急保养
 2. 制定详细保养计划
-3. 准备必要的备件和工具`
-          }
-          
-          isTyping.value = false
-          isAIResponding.value = false
-          saveConversations()
-          
-          console.log('🎉 台账分析完成')
+3. 准备必要的备件和工具
+
+**📥 下载保养计划：**`
+            
+            // 添加下载按钮的actions数组
+            aiMessage.actions = ['下载保养计划']
+            
+            // 清空内容，准备打字机效果
+            aiMessage.content = ''
+            aiMessage.isTyping = true
+            
+            // 使用打字机效果显示分析结果
+            typewriterEffect(analysisResult, currentConversation.messages.length - 1, currentConversation)
+            
+            console.log('🎉 台账分析完成，开始打字机效果')
+          })
         } catch (error) {
           console.error('❌ 完成分析时出错:', error)
+          // 确保清理定时器
+          if (progressInterval) {
+            clearInterval(progressInterval)
+            progressInterval = null
+          }
           isTyping.value = false
           isAIResponding.value = false
         }
@@ -729,6 +752,7 @@ export default {
       setTimeout(() => {
         if (progressInterval) {
           clearInterval(progressInterval)
+          progressInterval = null
           console.log('⚠️ 安全清理：强制停止进度条定时器')
         }
       }, totalTime + 2000) // 比预期时间多2秒的安全边界
