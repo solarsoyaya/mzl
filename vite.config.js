@@ -5,6 +5,9 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [vue()],
   base: '/',
+  css: {
+    postcss: './postcss.config.js',
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
