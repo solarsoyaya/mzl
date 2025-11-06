@@ -866,7 +866,7 @@ export default {
           }
           currentConversation.messages.push(aiMsg)
           // 仅展示特殊时间提示，不生成工单（爆水管场景改为慢速打字）
-          typewriterEffect(specialMd, currentConversation.messages.length - 1, currentConversation, { speed: 'slow' })
+          typewriterEffect(specialMd, currentConversation.messages.length - 1, currentConversation)
         } else {
          // 其他情况：保持现有逻辑，生成话术+工单（快速打字）
          const orderId = getNextWorkOrderId()
@@ -900,7 +900,7 @@ export default {
          }
          currentConversation.messages.push(aiMsg)
          // 一个回答内先显示话术，再紧跟工单卡片（快速打字）
-         typewriterEffect(combinedContent, currentConversation.messages.length - 1, currentConversation, { fast: true })
+         typewriterEffect(combinedContent, currentConversation.messages.length - 1, currentConversation)
        }
     }
 
