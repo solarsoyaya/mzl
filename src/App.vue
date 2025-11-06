@@ -900,7 +900,7 @@ export default {
          }
          currentConversation.messages.push(aiMsg)
          // 一个回答内先显示话术，再紧跟工单卡片（快速打字）
-         typewriterEffect(combinedContent, currentConversation.messages.length - 1, currentConversation)
+         typewriterEffect(combinedContent, currentConversation.messages.length - 1, currentConversation,{fast:true})
        }
     }
 
