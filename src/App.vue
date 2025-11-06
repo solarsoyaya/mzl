@@ -8,7 +8,7 @@
       @create-conversation="createNewConversation"
       @select-conversation="selectConversation"
       @delete-conversation="deleteConversation"
-    />
+    ></Sidebar>
 
     <!-- 主内容区域 -->
     <div 
@@ -30,47 +30,47 @@
         @clear-chat="clearCurrentChat"
         @show-notification="showNotification"
         @show-phone-modal="showPhoneModal = true"
-      />
+      ></ChatInterface>
     </div>
+
+    <!-- 汇报模态框 -->
+    <ReportModal
+      :isVisible="showReportModal"
+      @confirm="handleReportConfirm"
+      @cancel="handleReportCancel"
+    ></ReportModal>
+
+    <!-- 确认模态框 -->
+    <ConfirmModal
+      :is-visible="showConfirmModal"
+      :event-type="confirmData.eventType"
+      :message="confirmData.message"
+      :departments="confirmData.departments"
+      @confirm="handleConfirmReport"
+      @cancel="handleConfirmCancel"
+    ></ConfirmModal>
+
+    <!-- 通知模态框 -->
+    <NotificationModal
+      :isVisible="notification.isVisible"
+      :type="notification.type"
+      :title="notification.title"
+      :message="notification.message"
+      :confirmText="notification.confirmText"
+      :cancelText="notification.cancelText"
+      :autoClose="notification.autoClose"
+      :autoCloseDelay="notification.autoCloseDelay"
+      @close="closeNotification"
+      @confirm="confirmNotification"
+      @cancel="cancelNotification"
+    ></NotificationModal>
+
+    <!-- 模拟打电话模态框 -->
+    <PhoneCallModal
+      :isVisible="showPhoneModal"
+      @close="closePhoneModal"
+    ></PhoneCallModal>
   </div>
-
-  <!-- 汇报模态框 -->
-  <ReportModal
-    :isVisible="showReportModal"
-    @confirm="handleReportConfirm"
-    @cancel="handleReportCancel"
-  />
-
-  <!-- 确认模态框 -->
-  <ConfirmModal
-    :is-visible="showConfirmModal"
-    :event-type="confirmData.eventType"
-    :message="confirmData.message"
-    :departments="confirmData.departments"
-    @confirm="handleConfirmReport"
-    @cancel="handleConfirmCancel"
-  />
-
-  <!-- 通知模态框 -->
-  <NotificationModal
-    :isVisible="notification.isVisible"
-    :type="notification.type"
-    :title="notification.title"
-    :message="notification.message"
-    :confirmText="notification.confirmText"
-    :cancelText="notification.cancelText"
-    :autoClose="notification.autoClose"
-    :autoCloseDelay="notification.autoCloseDelay"
-    @close="closeNotification"
-    @confirm="confirmNotification"
-    @cancel="cancelNotification"
-  />
-
-  <!-- 模拟打电话模态框 -->
-  <PhoneCallModal
-    :isVisible="showPhoneModal"
-    @close="closePhoneModal"
-  />
 </template>
 
 <script>
@@ -319,7 +319,7 @@ export default {
       if (message.includes('保养') || message.includes('设备')) {
         responseContent = conversationScenarios.equipmentMaintenance.aiResponse
         actions = conversationScenarios.equipmentMaintenance.followUp
-      } else if (message.includes('漏水') || message.includes('故障') || message.includes('紧急')) {
+      } else if (message.includes('漏水') || message.includes('爆水管') || message.includes('故障') || message.includes('紧急')) {
         responseContent = conversationScenarios.emergencyResponse.aiResponse
         actions = conversationScenarios.emergencyResponse.followUp
       } else if (message.includes('生成事件汇报') || message.includes('事件汇报')) {
@@ -327,13 +327,13 @@ export default {
 
 **事件汇报模板**
 
-📋 **事件标题**：综合楼七楼空调冷冻水管漏水
+📋 **事件标题**：综合楼七楼东侧病房区爆水管
 ⏰ **发生时间**：${new Date().toLocaleString('zh-CN')}
 📍 **事件地点**：综合楼七楼
 🎯 **影响范围**：A2-A5病区空调供冷可能受影响
 
 **事件描述**
-发现综合楼七楼空调冷冻水管出现漏水情况，需要立即处理以避免影响病区正常运行。
+现场发生“综合楼七楼东侧病房区爆水管”情况，需立即到场确认爆裂管线类型并采取止水与围挡措施，避免影响病区正常运行。
 
 **已采取措施**
 ✅ 已联系工程技工携带接水盘、围挡等应急设备
@@ -430,18 +430,30 @@ export default {
       saveConversations()
     }
     
-    // 打字机效果函数
-    const typewriterEffect = (fullText, messageIndex, conversation) => {
+    // 打字机效果函数（支持速度 slow/normal/fast）
+    const typewriterEffect = (fullText, messageIndex, conversation, opts = {}) => {
       let currentText = ''
       let currentIndex = 0
+
+      // 速度控制：兼容旧的 fast 参数
+      const speed = opts.speed ? String(opts.speed) : (opts.fast ? 'fast' : 'normal')
+      let baseDelay, randomMax, minChunk, maxChunk
+      if (speed === 'slow') {
+        // 明显减速：每次间隔约100-300ms，单次1-2字符
+        baseDelay = 100; randomMax = 200; minChunk = 1; maxChunk = 2
+      } else if (speed === 'fast') {
+        baseDelay = 6; randomMax = 14; minChunk = 2; maxChunk = 4
+      } else {
+        baseDelay = 30; randomMax = 50; minChunk = 1; maxChunk = 3
+      }
       
       // 开始AI响应状态
       isAIResponding.value = true
       
       const typeInterval = setInterval(() => {
         if (currentIndex < fullText.length) {
-          // 随机选择添加1-3个字符
-          const charsToAdd = Math.floor(Math.random() * 3) + 1
+          // 随机选择添加字符数
+          const charsToAdd = Math.floor(Math.random() * (maxChunk - minChunk + 1)) + minChunk
           const endIndex = Math.min(currentIndex + charsToAdd, fullText.length)
           
           currentText += fullText.slice(currentIndex, endIndex)
@@ -468,7 +480,7 @@ export default {
           // 保存对话
           saveConversations()
         }
-      }, Math.random() * 50 + 30) // 30-80ms的随机延迟
+      }, Math.random() * randomMax + baseDelay) // 默认30-80ms；快速模式约6-20ms
     }
 
     // 处理文件上传
@@ -771,12 +783,15 @@ export default {
       showReportModal.value = false
       
       // 检测是否为紧急事件
-      const isEmergency = content.includes('漏水') || content.includes('故障') || content.includes('紧急') || content.includes('事故')
+      const isEmergency = ['漏水', '爆水管'].some(k => content.includes(k))
       
       if (isEmergency) {
-        // 设置确认框数据
-        confirmData.eventType = '大面积漏水'
-        confirmData.message = '已识别到"大面积漏水"，判断为一类紧急事件，是否立即同步汇报至保洁部门、工程部门相关人员。'
+        // 设置确认框数据（根据内容显示更准确的事件类型）
+        const isBurst = content.includes('爆水管')
+        confirmData.eventType = isBurst ? '爆水管' : '大面积漏水'
+        confirmData.message = isBurst
+          ? '已识别到“爆水管”，判断为一类紧急事件，是否立即同步汇报至保洁部门、工程部门相关人员。'
+          : '已识别到“大面积漏水”，判断为一类紧急事件，是否立即同步汇报至保洁部门、工程部门相关人员。'
         confirmData.departments = ['保洁部门', '工程部门']
         
         // 显示确认模态框
@@ -812,7 +827,7 @@ export default {
       // 添加用户消息
       const userMessage = {
         type: 'user',
-        content: content || '综合楼七楼空调冷冻水管漏水，请立即支援',
+        content: content || '综合楼七楼东侧病房区爆水管，请立即支援',
         timestamp: Date.now()
       }
       currentConversation.messages.push(userMessage)
@@ -822,116 +837,252 @@ export default {
         currentConversation.title = '一键汇报'
       }
 
-      // AI分析并回复
+      // AI分析并回复（移除2秒延迟，直接渲染内容）
       isTyping.value = true
       isAIResponding.value = true
-      
-      setTimeout(() => {
-        isTyping.value = false
-        
-        let aiResponse = ''
-        
-        if (isEmergency) {
-          aiResponse = conversationScenarios.emergencyResponse.aiResponse
+
+      // 立即完成打字状态，直接生成并展示
+      isTyping.value = false
+
+      // 特定紧急事件：仅当文本包含“综合楼七楼东侧病房区爆水管”时不生成工单，沿用特殊时间提示
+        const reportText = (userMessage && userMessage.content) ? userMessage.content : (content || '')
+         const normalized = (reportText || '').replace(/\s/g, '')
+         const isSpecialBurst = normalized.includes('爆水管')
+ 
+         if (isSpecialBurst) {
+           const now = dayjs()
+           const acceptTime = now.add(5, 'minute').format('HH:mm')
+           const arriveTime = now.add(10, 'minute').format('HH:mm')
+ 
+           const specialMd = conversationScenarios.emergencyResponse.aiResponse
+ 
+          const aiMsg = {
+            type: 'ai',
+            content: '',
+            timestamp: Date.now(),
+            isTyping: true,
+            actions: ['查看处理进度', '联系现场人员'],
+            followUp: conversationScenarios.emergencyResponse.followUp
+          }
+          currentConversation.messages.push(aiMsg)
+          // 仅展示特殊时间提示，不生成工单（爆水管场景改为慢速打字）
+          typewriterEffect(specialMd, currentConversation.messages.length - 1, currentConversation, { speed: 'slow' })
         } else {
-          aiResponse = `收到您的汇报，正在分析事件内容...\n\n**汇报内容分析：**\n- 事件性质：一般工作汇报\n- 处理优先级：正常\n- 建议处理方式：按标准流程处理\n\n**已自动生成汇报记录，相关信息将同步至管理系统。**`
-        }
-        
-        const aiMessage = {
-          type: 'ai',
-          content: '',
-          timestamp: Date.now(),
-          isTyping: true,
-          actions: isEmergency ? ['查看处理进度', '联系现场人员'] : ['生成汇报文档', '联系相关人员'],
-          followUp: isEmergency ? conversationScenarios.emergencyResponse.followUp : []
-        }
-        
-        currentConversation.messages.push(aiMessage)
-        
-        // 开始打字机效果
-        typewriterEffect(aiResponse, currentConversation.messages.length - 1, currentConversation)
-      }, 2000)
+         // 其他情况：保持现有逻辑，生成话术+工单（快速打字）
+         const orderId = getNextWorkOrderId()
+
+         const speechHtml = isEmergency
+           ? `<div style="margin-bottom:10px; line-height:1.8; color:#374151;">已为紧急事件生成维修工单哦——<br><span>工单编号</span><span style="font-weight:600;">${orderId}</span>，事件类型为水管故障，位置在综合楼七楼东侧病房区，优先级为“高”。已同步通知工程与保洁联动处置，秩序员小王（136XXXXXXX）正在赶往现场维持秩序，您有其他情况随时跟我说~</div>`
+           : `<div style="margin-bottom:10px; line-height:1.8; color:#374151;">收到您的反馈啦~我已经自动生成维修工单哦——<br><span>工单编号</span><span style="font-weight:600;">${orderId}</span>，显示儿科门诊门禁失效，影响患者和医护通行，优先级是‘中’。已经同步到了工单系统，预计很快就会有维修人员接单并到现场处理啦。另外，秩序员小王（136XXXXXXX）也会去现场帮忙维持秩序，您要是有其他情况随时跟我说~</div>`
+
+         const workOrderHtml = isEmergency
+           ? generateWorkOrderCard({
+               orderId,
+               eventType: '水管故障',
+               location: '综合楼七楼东侧病房区',
+               description: '水管爆裂或大面积漏水，需紧急止水与围挡',
+               impact: '影响病区安全与就诊秩序，需工程与保洁联动处置',
+               priority: '高（★★★★★）',
+               coordinator: '秩序员小王',
+               coordinatorPhone: '136XXXXXXX'
+             })
+           : generateWorkOrderCard({ orderId })
+
+         const combinedContent = speechHtml + workOrderHtml
+
+         const aiMsg = {
+           type: 'ai',
+           content: '',
+           timestamp: Date.now(),
+           isTyping: true,
+           actions: isEmergency ? ['查看处理进度', '联系现场人员'] : ['联系相关人员'],
+           followUp: isEmergency ? conversationScenarios.emergencyResponse.followUp : []
+         }
+         currentConversation.messages.push(aiMsg)
+         // 一个回答内先显示话术，再紧跟工单卡片（快速打字）
+         typewriterEffect(combinedContent, currentConversation.messages.length - 1, currentConversation, { fast: true })
+       }
     }
-    // 组件挂载时初始化
+
+    // 自动生成工单编号（WX+YYYYMMDD+序号）
+    const getNextWorkOrderId = () => {
+      const today = dayjs().format('YYYYMMDD')
+      const key = 'work_order_seq_' + today
+      let seq = parseInt(localStorage.getItem(key) || '0', 10)
+      seq += 1
+      localStorage.setItem(key, String(seq))
+      const seqStr = String(seq).padStart(3, '0')
+      return 'WX' + today + seqStr
+    }
+
+    // 格式化完整时间
+    const formatFullTime = (d) => dayjs(d).format('YYYY-MM-DD HH:mm:ss')
+
+    // 生成“纸质工单”风格的HTML内容
+    const generateWorkOrderCard = (opts = {}) => {
+      const orderId = (opts && opts.orderId) ? opts.orderId : getNextWorkOrderId()
+      const now = dayjs()
+      const genTime = formatFullTime(now)
+      const acceptTime = now.add(5, 'minute').format('HH:mm')
+      const arriveTime = now.add(10, 'minute').format('HH:mm')
+
+      // 允许覆盖默认字段
+      const {
+        eventType = '门禁设备故障',
+        location = '儿科门诊区域门禁',
+        description = '门禁系统失效，无法正常开关',
+        impact = '儿科门诊患者及医护人员通行受阻，可能导致就诊秩序受影响',
+        priority = '中（★★★）',
+        coordinator = '秩序员小王',
+        coordinatorPhone = '136XXXXXXX'
+      } = opts
+
+      // 使用内联样式模拟纸质工单（改为字符串拼接避免解析问题）
+      const html = [
+        '<div style="',
+          'max-width: 760px; margin: 12px 0; padding: 18px 20px;',
+          'background: #fdfaf3;',
+          'border: 1px solid #d6caa1; border-radius: 6px;',
+          'box-shadow: 0 2px 6px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);',
+          "font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #2b2b2b;",
+        '">',
+          '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">',
+            '<div style="font-size:18px; font-weight:700; letter-spacing:0.5px; color:#1f2937;">维修工单（自动生成）</div>',
+            '</div>',
+
+          '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom:10px;">',
+            '<div><span style="color:#6b7280;">工单编号：</span><span style="font-weight:600;">' + orderId + '</span></div>',
+            '<div><span style="color:#6b7280;">事件类型：</span><span style="font-weight:600;">' + eventType + '</span></div>',
+          '</div>',
+
+          '<div style="margin:10px 0; padding:10px 12px; background:#fffdf5; border:1px solid #e9ddbb; border-radius:4px;">',
+            '<div style="font-weight:600; margin-bottom:6px;">故障详情</div>',
+            '<div style="line-height:1.8;">',
+              '<div>• 位置：' + location + '</div>',
+              '<div>• 描述：' + description + '</div>',
+              '<div>• 影响范围：' + impact + '</div>',
+            '</div>',
+          '</div>',
+
+          '<div style="display:flex; align-items:center; gap:16px; margin:10px 0;">',
+            '<div><span style="color:#6b7280;">处理优先级：</span><span style="font-weight:600;">' + priority + '</span></div>',
+          '</div>',
+
+          '<div style="margin:10px 0; padding:10px 12px; background:#fffdf5; border:1px solid #e9ddbb; border-radius:4px;">',
+            '<div style="font-weight:600; margin-bottom:6px;">处理流程</div>',
+            '<div style="line-height:1.8;">',
+              '<div>1）临时措施：已通知协调秩序员' + coordinator + '（' + coordinatorPhone + '）到现场维持秩序，引导患者通行</div>',
+              '<div>2）维修派工：已自动生成工单，维保人员将尽快接单并到场处理</div>',
+            '</div>',
+          '</div>',
+
+          '<div style="display:flex; align-items:center; gap:14px; margin:10px 0;">',
+            '<div style="font-weight:600;">状态跟踪：</div>',
+            '<div>☑ 已生成 □ 维保人员接单 □ 处理中 □ 已解决 □ 已归档</div>',
+          '</div>',
+
+
+        '</div>'
+      ]
+      return html.join('')
+    }
+
     onMounted(() => {
       initializeChat()
     })
 
-    // 显示通知的方法
-    const showNotification = (options) => {
+    const showNotification = (payload = {}) => {
+      const {
+        type = 'info',
+        title = '',
+        message = '',
+        confirmText = '确定',
+        cancelText = '取消',
+        autoClose = false,
+        autoCloseDelay = 3000,
+        onConfirm = null,
+        onCancel = null
+      } = payload
+      notification.type = type
+      notification.title = title
+      notification.message = message
+      notification.confirmText = confirmText
+      notification.cancelText = cancelText
+      notification.autoClose = autoClose
+      notification.autoCloseDelay = autoCloseDelay
+      notification.onConfirm = onConfirm
+      notification.onCancel = onCancel
       notification.isVisible = true
-      notification.type = options.type || 'info'
-      notification.title = options.title || ''
-      notification.message = options.message || ''
-      notification.confirmText = options.confirmText || ''
-      notification.cancelText = options.cancelText || ''
-      notification.autoClose = options.autoClose !== false
-      notification.autoCloseDelay = options.autoCloseDelay || 3000
-      notification.onConfirm = options.onConfirm || null
-      notification.onCancel = options.onCancel || null
+      if (autoClose) {
+        setTimeout(() => {
+          notification.isVisible = false
+        }, autoCloseDelay || 3000)
+      }
     }
 
-    // 关闭通知的方法
     const closeNotification = () => {
       notification.isVisible = false
-      notification.onConfirm = null
-      notification.onCancel = null
     }
 
-    // 确认通知的方法
     const confirmNotification = () => {
-      if (notification.onConfirm) {
+      notification.isVisible = false
+      if (typeof notification.onConfirm === 'function') {
         notification.onConfirm()
       }
-      closeNotification()
     }
 
-    // 取消通知的方法
     const cancelNotification = () => {
-      if (notification.onCancel) {
+      notification.isVisible = false
+      if (typeof notification.onCancel === 'function') {
         notification.onCancel()
       }
-      closeNotification()
     }
 
-    // 关闭模拟打电话模态框的方法
     const closePhoneModal = () => {
       showPhoneModal.value = false
     }
 
     return {
       activeTab,
-      currentMessages,
-      conversations,
-      activeConversationId,
       isTyping,
       isAIResponding,
       isSidebarCollapsed,
-      tabs,
+      conversations,
+      activeConversationId,
       showReportModal,
       showConfirmModal,
       confirmData,
       notification,
+      showPhoneModal,
+      tabs,
+      currentMessages,
+      generateId,
+      createNewConversation,
+      selectConversation,
+      deleteConversation,
+      updateConversationTitle,
+      saveConversations,
+      loadConversations,
+      initializeChat,
       handleSendMessage,
+      generateAIResponse,
       handleQuickCommand,
+      typewriterEffect,
       handleFileUpload,
       handleGenerateReport,
       clearCurrentChat,
       handleSidebarToggle,
-      createNewConversation,
-      selectConversation,
-      deleteConversation,
       handleAnalyzeEquipmentPlan,
       handleOneClickReport,
       handleReportConfirm,
       handleReportCancel,
       handleConfirmReport,
       handleConfirmCancel,
+      processReport,
       showNotification,
       closeNotification,
       confirmNotification,
       cancelNotification,
-      showPhoneModal,
       closePhoneModal
     }
   }

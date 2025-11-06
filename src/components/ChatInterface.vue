@@ -185,7 +185,7 @@
 </template>
 
 <script>
-import { ref, nextTick, watch, onMounted } from 'vue'
+import { ref, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
 import PlusMenu from './PlusMenu.vue'
 import FloatingCommands from './FloatingCommands.vue'
 import { marked } from 'marked'
@@ -215,10 +215,49 @@ export default {
       default: 'equipment'
     }
   },
-  emits: ['send-message', 'quick-command', 'file-upload', 'generate-report', 'clear-chat', 'show-phone-modal'],
+  emits: ['send-message', 'quick-command', 'file-upload', 'generate-report', 'clear-chat', 'show-phone-modal', 'show-notification'],
   setup(props, { emit }) {
     const inputMessage = ref('')
     const messagesContainer = ref(null)
+    // 用户滚动暂停控制与底部检测（更可靠）
+    const userPausedAutoScroll = ref(false)
+    const SCROLL_THRESHOLD = 30
+    const isAtBottom = () => {
+      const el = messagesContainer.value
+      if (!el) return true
+      return el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_THRESHOLD
+    }
+    const handleContainerScroll = () => {
+      // 只要不在底部，就认为用户在浏览，暂停自动滚动
+      userPausedAutoScroll.value = !isAtBottom()
+    }
+    const handleWheel = (e) => {
+      // 用户向上滚动则暂停，向下滚动且已接近底部则恢复
+      if (e.deltaY < 0) {
+        userPausedAutoScroll.value = true
+      } else if (isAtBottom()) {
+        userPausedAutoScroll.value = false
+      }
+    }
+    // 当容器 ref 变化（首次渲染或消息出现）时绑定/解绑事件
+    watch(messagesContainer, (el, prev) => {
+      if (prev) {
+        prev.removeEventListener('scroll', handleContainerScroll)
+        prev.removeEventListener('wheel', handleWheel)
+      }
+      if (el) {
+        el.addEventListener('scroll', handleContainerScroll, { passive: true })
+        el.addEventListener('wheel', handleWheel, { passive: true })
+      }
+    }, { immediate: true })
+    onBeforeUnmount(() => {
+      const el = messagesContainer.value
+      if (el) {
+        el.removeEventListener('scroll', handleContainerScroll)
+        el.removeEventListener('wheel', handleWheel)
+      }
+    })
+
     const textareaRef = ref(null)
 
     // 格式化时间戳
@@ -294,6 +333,14 @@ export default {
       } else if (action === '联系相关人员') {
         // 打开模拟打电话模态框
         emit('show-phone-modal')
+      } else if (action === '查看技术指导') {
+        emit('show-notification', {
+          type: 'info',
+          title: '技术指导',
+          message: '1）先关闭相关区域总阀\n2）在楼层入口设置围挡与引导\n3）排查供水/回水侧管道裂纹或接口松动\n4）联系工程人员进行临时止水与更换\n——如需详细SOP，请点击“下载汇报模板”或联系现场人员',
+          confirmText: '知道了',
+          autoClose: false
+        })
       }
     }
 
@@ -350,16 +397,22 @@ export default {
       })
     }
 
-    // 格式化消息（Markdown转HTML）
+    // 格式化消息（支持原生HTML与Markdown）
     const formatMessage = (content) => {
-      return marked(content)
+      if (!content) return ''
+      // 如果内容包含HTML标签，直接返回（交给v-html渲染）
+      const hasHtml = /<[^>]+>/.test(content)
+      return hasHtml ? content : marked(content)
     }
 
-    // 滚动到底部
+    // 滚动到底部（在允许自动滚动时才执行）
     const scrollToBottom = () => {
       nextTick(() => {
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+        const el = messagesContainer.value
+        if (!el) return
+        // 仅在未被用户暂停或用户已在底部时才自动滚动
+        if (!userPausedAutoScroll.value || isAtBottom()) {
+          el.scrollTop = el.scrollHeight
         }
       })
     }
@@ -389,9 +442,14 @@ export default {
       scrollToBottom()
     }, { deep: true })
 
-    // 监听打字状态变化，自动滚动到底部
-    watch(() => props.isTyping, () => {
-      scrollToBottom()
+    // 监听打字状态变化：开始时尝试滚动；结束时重置自动滚动状态
+    watch(() => props.isTyping, (typing) => {
+      if (typing) {
+        scrollToBottom()
+      } else {
+        // 生成结束：如果用户已在底部则解除暂停，否则保持暂停状态
+        userPausedAutoScroll.value = !isAtBottom()
+      }
     })
 
     return {

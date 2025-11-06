@@ -41,7 +41,7 @@
 
           <!-- 确认消息 -->
           <div class="text-gray-700">
-            <p class="text-base leading-relaxed">{{ message }}</p>
+            <div class="text-base leading-relaxed" v-html="message"></div>
           </div>
 
           <!-- 部门列表 -->

@@ -593,7 +593,7 @@ export const excelTemplates = {
     filename: '事件汇报.xlsx',
     headers: ['事件标题', '时间', '科室/位置', '影响范围', '临时措施', '负责人', '下一步'],
     data: [
-      ['综合楼七楼空调冷冻水管漏水', dayjs().format('YYYY-MM-DD HH:mm'), '综合楼七楼', 'A2-A5病区', '已联系工程技工携带接水盘围挡', '张三', '等待技工到场维修'],
+      ['综合楼七楼东侧病房区爆水管', dayjs().format('YYYY-MM-DD HH:mm'), '综合楼七楼东侧病房区', 'A2-A5病区', '已联系工程技工携带接水盘围挡', '张三', '等待技工到场维修'],
       ['电梯A3故障', dayjs().subtract(1, 'hour').format('YYYY-MM-DD HH:mm'), '住院楼A区', '1-8楼患者', '启用备用电梯，人工引导', '李四', '联系维保公司检修'],
       ['氧气站压力异常', dayjs().subtract(2, 'hour').format('YYYY-MM-DD HH:mm'), '设备房', '全院供氧', '切换备用系统', '王五', '检查主系统故障原因'],
       ['手术室空调失效', dayjs().subtract(3, 'hour').format('YYYY-MM-DD HH:mm'), '手术室3', '当前手术', '启用移动空调', '赵六', '手术结束后检修'],
@@ -634,7 +634,7 @@ export const conversationScenarios = {
   },
   
   emergencyResponse: {
-    userMessage: '综合楼七楼空调冷冻水管漏水，请立即支援',
+    userMessage: '综合楼七楼东侧病房区爆水管，请立即支援',
     aiResponse: `收到您的确认啦～别着急，您先稳住情绪，我已经在紧急联系相关人员咯：
 
 **管理层联系人**
