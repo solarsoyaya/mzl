@@ -1,187 +1,159 @@
 <template>
   <div class="flex flex-col h-screen bg-white">
+
     <!-- 聊天消息区域 -->
-    <div class="flex-1 overflow-hidden">
+    <div class="flex-1 overflow-hidden relative">
+      <!-- 内嵌Logo头部（不遮挡侧边栏） -->
+      <div class="px-4 py-2 absolute top-3 left-3 z-30 flex items-center gap-2 pointer-events-none">
+        <img src="/logo.png" alt="美置美康" class="h-10 w-auto" />
+      </div>
       <!-- 有消息时显示消息列表 -->
-      <div 
-        v-if="messages.length > 0"
-        class="h-full overflow-y-auto scroll-smooth px-4 py-6"
-        ref="messagesContainer"
-      >
+      <div v-if="messages.length > 0" class="h-full overflow-y-auto scroll-smooth px-4 py-6" ref="messagesContainer">
         <div class="max-w-3xl mx-auto space-y-6">
           <!-- 消息列表 -->
-          <div
-            v-for="(message, index) in messages"
-            :key="index"
-            :class="[
-              'flex',
-              message.type === 'user' ? 'justify-end' : 'justify-start'
-            ]"
-          >
+          <div v-for="(message, index) in messages" :key="index" :class="[
+            'flex',
+            message.type === 'user' ? 'justify-end' : 'justify-start'
+          ]">
             <!-- AI消息 -->
             <div v-if="message.type === 'ai'" class="flex items-start space-x-3 w-full">
               <!-- AI头像 -->
               <div class="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                 <span class="text-white text-sm font-medium">AI</span>
               </div>
-              
+
               <!-- AI消息内容 -->
               <div class="flex-1 min-w-0">
-                <div 
-                  class="text-gray-900 whitespace-pre-wrap break-words overflow-wrap-anywhere"
-                  v-html="formatMessage(message.content)"
-                ></div>
-                
+                <div class="text-gray-900 whitespace-pre-wrap break-words overflow-wrap-anywhere"
+                  v-html="formatMessage(message.content)"></div>
+
                 <!-- 进度条 -->
                 <div v-if="message.showProgress" class="mt-3">
                   <div class="flex items-center space-x-3">
                     <div class="flex-1">
                       <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div 
+                        <div
                           class="bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 h-full rounded-full will-change-[width] transform-gpu"
-                          :style="{ 
+                          :style="{
                             width: message.progress + '%',
                             transition: 'width 400ms cubic-bezier(0.4, 0, 0.2, 1)',
                             transform: 'translateZ(0)'
-                          }"
-                        >
+                          }">
                           <!-- 添加光泽效果 -->
-                          <div class="h-full w-full bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
+                          <div
+                            class="h-full w-full bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse">
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div class="text-sm text-gray-700 font-semibold min-w-[3rem] text-right">{{ message.progress }}%</div>
+                    <div class="text-sm text-gray-700 font-semibold min-w-[3rem] text-right">{{ message.progress }}%
+                    </div>
                   </div>
                   <!-- 进度描述 -->
                   <div class="mt-2 text-xs text-gray-500">
-                    {{ message.progress < 30 ? '正在解析文件结构...' : 
-                        message.progress < 60 ? '正在提取台账数据...' : 
-                        message.progress < 90 ? '正在进行趋势分析...' : 
-                        '即将完成分析...' }}
+                    {{ message.progress < 30 ? '正在解析文件结构...' : message.progress < 60 ? '正在提取台账数据...' : message.progress
+                      < 90 ? '正在进行趋势分析...' : '即将完成分析...' }} </div>
                   </div>
+
+                  <!-- 打字指示器 -->
+                  <div v-if="message.isTyping" class="flex items-center space-x-1 mt-2">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                  </div>
+
+                  <!-- 操作按钮 -->
+                  <div v-if="message.actions && message.actions.length > 0" class="flex flex-wrap gap-2 mt-3">
+                    <button v-for="action in message.actions" :key="action" @click="handleActionClick(action)"
+                      class="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                      {{ action }}
+                    </button>
+                  </div>
+
+                  <!-- followUp按钮 -->
+                  <div v-if="message.followUp && message.followUp.length > 0" class="flex flex-wrap gap-2 mt-3">
+                    <button v-for="followUp in message.followUp" :key="followUp" @click="handleFollowUpClick(followUp)"
+                      class="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                      {{ followUp }}
+                    </button>
+                  </div>
+
+                  <!-- 时间戳 -->
+                  <div class="text-xs text-gray-500 mt-2">{{ formatTimestamp(message.timestamp) }}</div>
                 </div>
-                
-                <!-- 打字指示器 -->
-                <div v-if="message.isTyping" class="flex items-center space-x-1 mt-2">
-                  <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                  <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+              </div>
+
+              <!-- 用户消息 -->
+              <div v-else class="flex items-start space-x-3 max-w-2xl">
+                <div class="flex-1 text-right min-w-0">
+                  <div class="inline-block bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-full">
+                    <div class="whitespace-pre-wrap break-words overflow-wrap-anywhere">{{ message.content }}</div>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-2">{{ formatTimestamp(message.timestamp) }}</div>
                 </div>
-                
-                <!-- 操作按钮 -->
-                <div v-if="message.actions && message.actions.length > 0" class="flex flex-wrap gap-2 mt-3">
-                  <button
-                    v-for="action in message.actions"
-                    :key="action"
-                    @click="handleActionClick(action)"
-                    class="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    {{ action }}
-                  </button>
+
+                <!-- 用户头像 -->
+                <div class="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                  <span class="text-gray-600 text-sm">👤</span>
                 </div>
-                
-                <!-- followUp按钮 -->
-                <div v-if="message.followUp && message.followUp.length > 0" class="flex flex-wrap gap-2 mt-3">
-                  <button
-                    v-for="followUp in message.followUp"
-                    :key="followUp"
-                    @click="handleFollowUpClick(followUp)"
-                    class="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                  >
-                    {{ followUp }}
-                  </button>
-                </div>
-                
-                <!-- 时间戳 -->
-                 <div class="text-xs text-gray-500 mt-2">{{ formatTimestamp(message.timestamp) }}</div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <!-- 用户消息 -->
-            <div v-else class="flex items-start space-x-3 max-w-2xl">
-              <div class="flex-1 text-right min-w-0">
-                <div class="inline-block bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-full">
-                  <div class="whitespace-pre-wrap break-words overflow-wrap-anywhere">{{ message.content }}</div>
-                </div>
-                <div class="text-xs text-gray-500 mt-2">{{ formatTimestamp(message.timestamp) }}</div>
-              </div>
-              
-              <!-- 用户头像 -->
-              <div class="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                <span class="text-gray-600 text-sm">👤</span>
+        <!-- 无消息时显示欢迎界面和快捷指令 -->
+        <div v-else class="h-full flex items-center justify-center px-4">
+          <FloatingCommands @command-click="handleQuickCommand" />
+        </div>
+
+        <!-- 打字指示器（全局） -->
+        <div v-if="isTyping && messages.length > 0" class="max-w-3xl mx-auto px-4 pb-4">
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <span class="text-white text-sm font-medium">AI</span>
+            </div>
+            <div class="bg-gray-50 rounded-2xl px-4 py-3">
+              <div class="flex items-center space-x-1">
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 无消息时显示欢迎界面和快捷指令 -->
-      <div v-else class="h-full flex items-center justify-center px-4">
-        <FloatingCommands @command-click="handleQuickCommand" />
-      </div>
-
-      <!-- 打字指示器（全局） -->
-      <div v-if="isTyping && messages.length > 0" class="max-w-3xl mx-auto px-4 pb-4">
-        <div class="flex items-start space-x-3">
-          <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-            <span class="text-white text-sm font-medium">AI</span>
-          </div>
-          <div class="bg-gray-50 rounded-2xl px-4 py-3">
-            <div class="flex items-center space-x-1">
-              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+      <!-- 输入区域 -->
+      <div class="bg-white">
+        <div class="max-w-3xl mx-auto px-4 py-4">
+          <div class="flex items-center space-x-3">
+            <!-- + 号菜单 -->
+            <div class="flex-shrink-0">
+              <PlusMenu :is-ai-responding="isAIResponding" @file-upload="handleFileUpload"
+                @generate-report="handleGenerateReport" @one-click-report="handleOneClickReport"
+                @clear-chat="handleClearChat" @show-notification="$emit('show-notification', $event)" />
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- 输入区域 -->
-    <div class="bg-white">
-      <div class="max-w-3xl mx-auto px-4 py-4">
-        <div class="flex items-center space-x-3">
-          <!-- + 号菜单 -->
-          <div class="flex-shrink-0">
-            <PlusMenu 
-              :is-ai-responding="isAIResponding"
-              @file-upload="handleFileUpload"
-              @generate-report="handleGenerateReport"
-              @one-click-report="handleOneClickReport"
-              @clear-chat="handleClearChat"
-              @show-notification="$emit('show-notification', $event)"
-            />
-          </div>
+            <!-- 输入框容器 -->
+            <div class="flex-1 relative">
+              <textarea v-model="inputMessage" @keydown="handleKeyDown" @input="adjustTextareaHeight"
+                :disabled="isAIResponding" placeholder="输入消息..."
+                class="w-full resize-none rounded-2xl border border-gray-300 px-4 py-3 pr-14 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 overflow-hidden"
+                rows="1" style="min-height: 48px; max-height: 120px; line-height: 1.5;" ref="textareaRef"></textarea>
 
-          <!-- 输入框容器 -->
-          <div class="flex-1 relative">
-            <textarea
-              v-model="inputMessage"
-              @keydown="handleKeyDown"
-              @input="adjustTextareaHeight"
-              :disabled="isAIResponding"
-              placeholder="输入消息..."
-              class="w-full resize-none rounded-2xl border border-gray-300 px-4 py-3 pr-14 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 overflow-hidden"
-              rows="1"
-              style="min-height: 48px; max-height: 120px; line-height: 1.5;"
-              ref="textareaRef"
-            ></textarea>
-            
-            <!-- 发送按钮 -->
-            <button
-              @click="sendMessage"
-              :disabled="!inputMessage.trim() || isAIResponding"
-              class="absolute right-3 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
-            >
-              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-              </svg>
-            </button>
+              <!-- 发送按钮 -->
+              <button @click="sendMessage" :disabled="!inputMessage.trim() || isAIResponding"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 rounded-full flex items-center justify-center transition-colors">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script>
@@ -263,10 +235,10 @@ export default {
     // 格式化时间戳
     const formatTimestamp = (timestamp) => {
       if (!timestamp) return ''
-      
+
       const messageTime = dayjs(timestamp)
       const now = dayjs()
-      
+
       // 如果是今天，只显示时间
       if (messageTime.isSame(now, 'day')) {
         return messageTime.format('HH:mm')
@@ -284,10 +256,10 @@ export default {
     // 发送消息
     const sendMessage = () => {
       if (!inputMessage.value.trim() || props.isAIResponding) return
-      
+
       emit('send-message', inputMessage.value.trim())
       inputMessage.value = ''
-      
+
       // 重置textarea高度
       nextTick(() => {
         if (textareaRef.value) {
@@ -453,23 +425,23 @@ export default {
     })
 
     return {
-       inputMessage,
-       messagesContainer,
-       textareaRef,
-       sendMessage,
-       handleKeyDown,
-       adjustTextareaHeight,
-       handleQuickCommand,
-       handleActionClick,
-       handleFollowUpClick,
-       handleFileUpload,
-       handleGenerateReport,
-       handleOneClickReport,
-       handleClearChat,
-       formatMessage,
-       formatTimestamp,
-       scrollToBottom
-     }
+      inputMessage,
+      messagesContainer,
+      textareaRef,
+      sendMessage,
+      handleKeyDown,
+      adjustTextareaHeight,
+      handleQuickCommand,
+      handleActionClick,
+      handleFollowUpClick,
+      handleFileUpload,
+      handleGenerateReport,
+      handleOneClickReport,
+      handleClearChat,
+      formatMessage,
+      formatTimestamp,
+      scrollToBottom
+    }
   }
 }
 </script>
@@ -496,9 +468,13 @@ export default {
 
 /* 打字动画 */
 @keyframes bounce {
-  0%, 60%, 100% {
+
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
   }
+
   30% {
     transform: translateY(-10px);
   }

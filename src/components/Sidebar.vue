@@ -113,11 +113,7 @@
       </div>
       <div v-else class="flex justify-center">
         <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-          <span class="text-sm font-medium text-white">莫export default defineConfig({
-  base: './', // 使用相对路径，便于本地直接打开
-  plugins: [vue()],
-  // ... 其他配置
-})</span>
+          <span class="text-sm font-medium text-white">莫</span>
         </div>
       </div>
     </div>

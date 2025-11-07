@@ -70,6 +70,9 @@
       :isVisible="showPhoneModal"
       @close="closePhoneModal"
     ></PhoneCallModal>
+
+    <!-- 工单系统集成 -->
+    <WorkOrderIntegration></WorkOrderIntegration>
   </div>
 </template>
 
@@ -81,6 +84,7 @@ import ReportModal from './components/ReportModal.vue'
 import ConfirmModal from './components/ConfirmModal.vue'
 import NotificationModal from './components/NotificationModal.vue'
 import PhoneCallModal from './components/PhoneCallModal.vue'
+import WorkOrderIntegration from './components/WorkOrderIntegration.vue'
 import { messageTemplates, conversationScenarios } from './data/mockData.js'
 import dayjs from 'dayjs'
 
@@ -92,7 +96,8 @@ export default {
     ReportModal,
     ConfirmModal,
     NotificationModal,
-    PhoneCallModal
+    PhoneCallModal,
+    WorkOrderIntegration
   },
   setup() {
     const activeTab = ref('equipment')
@@ -479,6 +484,11 @@ export default {
           
           // 保存对话
           saveConversations()
+
+          // 回调：内容渲染完成
+          if (opts && typeof opts.onComplete === 'function') {
+            try { opts.onComplete() } catch (e) { console.error('typewriterEffect onComplete error:', e) }
+          }
         }
       }, Math.random() * randomMax + baseDelay) // 默认30-80ms；快速模式约6-20ms
     }
@@ -574,18 +584,26 @@ export default {
           timestamp: Date.now()
         }
         
-        // 添加AI回复消息
+        // 添加AI回复消息（打字机效果）
         const aiMessage = {
           id: Date.now() + 1,
           type: 'ai',
-          content: reportContent,
-          timestamp: Date.now() + 100
+          content: '',
+          timestamp: Date.now() + 100,
+          isTyping: true
         }
         
-        currentConversation.messages.push(userMessage, aiMessage)
-        currentConversation.lastMessage = '生成了工作汇报'
+        // 先推入用户消息，再单独推入AI空消息
+        currentConversation.messages.push(userMessage)
+        currentConversation.messages.push(aiMessage)
+
+        // 使用打字机效果逐字输出报告内容（正常速度）
+        typewriterEffect(reportContent, currentConversation.messages.length - 1, currentConversation, { speed: 'normal' })
+
+        // 更新对话基本信息（lastMessage在打字完成时由typewriterEffect更新）
         currentConversation.updatedAt = Date.now()
         
+        // 保存当前状态（确保用户消息持久化）
         saveConversations()
       }
     }
@@ -900,7 +918,35 @@ export default {
          }
          currentConversation.messages.push(aiMsg)
          // 一个回答内先显示话术，再紧跟工单卡片（快速打字）
-         typewriterEffect(combinedContent, currentConversation.messages.length - 1, currentConversation,{fast:true})
+         typewriterEffect(combinedContent, currentConversation.messages.length - 1, currentConversation, {
+           fast: true,
+           onComplete: () => {
+             // 内容渲染完成后弹窗确认自动派单
+             showNotification({
+               type: 'info',
+               title: '确认派单',
+               message: '是否立即将工单派给“综合维修-某某某”？',
+               confirmText: '立即派单',
+               cancelText: '稍后手动派单',
+               onConfirm: () => {
+                 // 将状态跟踪更新为包含“已派单”
+                 try {
+                   const idx = currentConversation.messages.length - 1
+                   const msg = currentConversation.messages[idx]
+                   if (msg && typeof msg.content === 'string') {
+                     msg.content = msg.content.replace(
+                       '☑ 已生成 □ 维保人员接单 □ 处理中 □ 已解决 □ 已归档',
+                       '☑ 已生成 ☑ 已派单 □ 维保人员接单 □ 处理中 □ 已解决 □ 已归档'
+                     )
+                     saveConversations()
+                   }
+                 } catch (e) {
+                   console.error('更新派单状态失败:', e)
+                 }
+               }
+             })
+           }
+         })
        }
     }
 
@@ -933,6 +979,8 @@ export default {
         description = '门禁系统失效，无法正常开关',
         impact = '儿科门诊患者及医护人员通行受阻，可能导致就诊秩序受影响',
         priority = '中（★★★）',
+        team = '综合维修',
+        assignee = '某某某',
         coordinator = '秩序员小王',
         coordinatorPhone = '136XXXXXXX'
       } = opts
@@ -966,6 +1014,12 @@ export default {
 
           '<div style="display:flex; align-items:center; gap:16px; margin:10px 0;">',
             '<div><span style="color:#6b7280;">处理优先级：</span><span style="font-weight:600;">' + priority + '</span></div>',
+          '</div>',
+
+          // 派单信息
+          '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin:10px 0; padding:10px 12px; background:#fffdf5; border:1px solid #e9ddbb; border-radius:4px;">',
+            '<div><span style="color:#6b7280;">责任组：</span><span style="font-weight:600;">' + team + '</span></div>',
+            '<div><span style="color:#6b7280;">负责人：</span><span style="font-weight:600;">' + assignee + '</span></div>',
           '</div>',
 
           '<div style="margin:10px 0; padding:10px 12px; background:#fffdf5; border:1px solid #e9ddbb; border-radius:4px;">',
